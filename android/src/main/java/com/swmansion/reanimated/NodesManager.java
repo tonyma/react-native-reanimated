@@ -91,13 +91,12 @@ public class NodesManager implements EventDispatcherListener {
   }
   private Queue<NativeUpdateOperation> mOperationsInBatch = new LinkedList<>();
 
-  public NodesManager(ReactContext context) {
+  private NodesManager(ReactContext context) {
     mContext = context;
     mUIManager = context.getNativeModule(UIManagerModule.class);
     updateContext = new UpdateContext();
     mUIImplementation = mUIManager.getUIImplementation();
     mCustomEventNamesResolver = mUIManager.getDirectEventNamesResolver();
-    mUIManager.getEventDispatcher().addListener(this);
 
     mEventEmitter = context.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class);
 
@@ -110,6 +109,12 @@ public class NodesManager implements EventDispatcherListener {
     };
 
     mNoopNode = new NoopNode(this);
+  }
+
+  public static NodesManager createNodesManager(ReactContext context) {
+    NodesManager manager = new NodesManager(context);
+    manager.mUIManager.getEventDispatcher().addListener(manager);
+    return manager;
   }
 
   public void onHostPause() {
