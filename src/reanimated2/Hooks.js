@@ -29,13 +29,11 @@ export function useMapper(fun, inputs = [], outputs = [], dependencies = []) {
   }, dependencies);
 }
 
-export function useEvent(handler, eventNames = [], dependencies = []) {
+export function useEvent(handler, eventNames = []) {
   const initRef = useRef(null);
-
-  if (initRef.current === null || handleDependenciesChange(initRef, dependencies)) {
+  if (initRef.current === null) {
     initRef.current = {
       worklet: new WorkletEventHandler(handler, eventNames),
-      dependencies
     };
   }
 
@@ -74,12 +72,12 @@ function prepareAnimation(animatedProp, lastAnimation, lastValue) {
         }
       }
 
-      animation.callStart = (timestamp) => {
+      animation.callStart = timestamp => {
         animation.start(animation, value, timestamp, lastAnimation);
       };
     } else if (typeof animatedProp === 'object') {
       // it is an object
-      Object.keys(animatedProp).forEach((key) =>
+      Object.keys(animatedProp).forEach(key =>
         prepareAnimation(
           animatedProp[key],
           lastAnimation && lastAnimation[key],
@@ -120,7 +118,7 @@ function runAnimations(animation, timestamp, key, result) {
     } else if (typeof animation === 'object') {
       result[key] = {};
       let allFinished = true;
-      Object.keys(animation).forEach((k) => {
+      Object.keys(animation).forEach(k => {
         if (!runAnimations(animation[k], timestamp, k, result[key])) {
           allFinished = false;
         }
@@ -145,7 +143,7 @@ function isAnimated(prop) {
       if (prop.animation) {
         return true;
       }
-      return Object.keys(prop).some((key) => isAnimated(prop[key]));
+      return Object.keys(prop).some(key => isAnimated(prop[key]));
     }
     return false;
   }
@@ -155,12 +153,12 @@ function isAnimated(prop) {
 function styleDiff(oldStyle, newStyle) {
   'worklet';
   const diff = {};
-  Object.keys(oldStyle).forEach((key) => {
+  Object.keys(oldStyle).forEach(key => {
     if (newStyle[key] === undefined) {
       diff[key] = null;
     }
   });
-  Object.keys(newStyle).forEach((key) => {
+  Object.keys(newStyle).forEach(key => {
     const value = newStyle[key];
     const oldValue = oldStyle[key];
 
@@ -188,13 +186,13 @@ function styleUpdater(viewTag, updater, state) {
 
   // extract animated props
   let hasAnimations = false;
-  Object.keys(animations).forEach((key) => {
+  Object.keys(animations).forEach(key => {
     const value = newValues[key];
     if (!isAnimated(value)) {
       delete animations[key];
     }
   });
-  Object.keys(newValues).forEach((key) => {
+  Object.keys(newValues).forEach(key => {
     const value = newValues[key];
     if (isAnimated(value)) {
       prepareAnimation(value, animations[key], oldValues[key]);
@@ -212,7 +210,7 @@ function styleUpdater(viewTag, updater, state) {
 
     const updates = {};
     let allFinished = true;
-    Object.keys(animations).forEach((propName) => {
+    Object.keys(animations).forEach(propName => {
       const finished = runAnimations(
         animations[propName],
         timestamp,
@@ -263,21 +261,38 @@ export function useAnimatedStyle(updater, dependencies = []) {
   const viewTag = useSharedValue(-1);
 
   const initRef = useRef(null);
-  if (initRef.current === null || handleDependenciesChange(initRef, dependencies)) {
+
+  /**
+   * create(or recreate) the object if
+   *  it has not been created yet
+   *  any provided dependencies changes(or there have not been any provided which is equal to listen to any change)
+   *  worklet hash changed(which means worklet body changed)
+   */
+  if (
+    initRef.current === null ||
+    handleDependenciesChange(initRef, dependencies) ||
+    initRef.current.__workletHash !== updater.__workletHash
+  ) {
     const initial = initialUpdaterRun(updater);
     initRef.current = {
       initial,
       remoteState: makeRemote({ last: initial }),
       inputs: Object.values(updater._closure),
       dependencies,
+      __workletHash: updater.__workletHash,
     };
   }
   const { initial, remoteState, inputs } = initRef.current;
 
-  useMapper(() => {
-    'worklet';
-    styleUpdater(viewTag, updater, remoteState);
-  }, inputs, [], dependencies);
+  useMapper(
+    () => {
+      'worklet';
+      styleUpdater(viewTag, updater, remoteState);
+    },
+    inputs,
+    [],
+    dependencies
+  );
 
   let wrongKey;
   const isError = Object.keys(initial).some((key) => {
@@ -307,11 +322,22 @@ export const useAnimatedProps = useAnimatedStyle;
 export function useDerivedValue(processor, dependencies = []) {
   const initRef = useRef(null);
 
-  if (initRef.current === null || handleDependenciesChange(initRef, dependencies)) {
+  /**
+   * create(or recreate) the object if
+   *  it has not been created yet
+   *  any provided dependencies changes(or there have not been any provided which is equal to listen to any change)
+   *  worklet hash changed(which means worklet body changed)
+   */
+  if (
+    initRef.current === null ||
+    handleDependenciesChange(initRef, dependencies) ||
+    initRef.current.__workletHash !== processor.__workletHash
+  ) {
     initRef.current = {
       sharedValue: makeMutable(initialUpdaterRun(processor)),
       inputs: Object.values(processor._closure),
       dependencies,
+      __workletHash: processor.__workletHash,
     };
   }
 
@@ -340,7 +366,7 @@ export function useAnimatedGestureHandler(handlers) {
   const { context } = initRef.current;
 
   return useEvent(
-    (event) => {
+    event => {
       'worklet';
       const UNDETERMINED = 0;
       const FAILED = 1;
@@ -406,7 +432,7 @@ export function useAnimatedScrollHandler(handlers) {
     subscribeForEvents.push('onMomentumScrollEnd');
   }
 
-  return useEvent((event) => {
+  return useEvent(event => {
     'worklet';
     const {
       onScroll,
@@ -441,20 +467,29 @@ export function useAnimatedScrollHandler(handlers) {
 
 const handleDependenciesChange = (ref, dependencies) => {
   if (ref.current === null) {
-    throw new Error('forbidden value of null ref passed to `handleDependenciesChange`')
+    throw new Error(
+      'forbidden value of null ref passed to `handleDependenciesChange`'
+    );
   }
   if (dependencies === undefined) {
-    return true; // this isn't intuitive but it means to just recreate worklet for every render(like not passing anything to `useEffect`)
+    // this isn't intuitive but it means to just recreate worklet for every render(like not passing anything to `useEffect`)
+    return true;
   }
-  let dependenciesChanged = false
+  if (dependencies.length === 0) {
+    // empty array means do not listen to any changes
+    return false;
+  }
+  let dependenciesChanged = false;
   if (dependencies.length !== ref.current.dependencies.length) {
-    throw new Error(`hook call error: invalid number of dependencies detected(expected ${ref.current.dependencies.length}, got ${dependencies.length})`)
+    throw new Error(
+      `hook call error: invalid number of dependencies detected(expected ${ref.current.dependencies.length}, got ${dependencies.length})`
+    );
   }
-  for(let i=0; i<dependencies.length; ++i) {
+  for (let i = 0; i < dependencies.length; ++i) {
     if (dependencies[i] !== ref.current.dependencies[i]) {
-      dependenciesChanged = true
-      ref.current.dependencies[i] = dependencies[i]
+      dependenciesChanged = true;
+      ref.current.dependencies[i] = dependencies[i];
     }
   }
-  return dependenciesChanged
-}
+  return dependenciesChanged;
+};
