@@ -32,12 +32,10 @@ export function useMapper(fun, inputs = [], outputs = [], dependencies = []) {
 export function useEvent(handler, eventNames = []) {
   const initRef = useRef(null);
   if (initRef.current === null) {
-    initRef.current = {
-      worklet: new WorkletEventHandler(handler, eventNames),
-    };
+    initRef.current = new WorkletEventHandler(handler, eventNames);
   }
 
-  return initRef.current.worklet;
+  return initRef.current;
 }
 
 function prepareAnimation(animatedProp, lastAnimation, lastValue) {
@@ -72,12 +70,12 @@ function prepareAnimation(animatedProp, lastAnimation, lastValue) {
         }
       }
 
-      animation.callStart = timestamp => {
+      animation.callStart = (timestamp) => {
         animation.start(animation, value, timestamp, lastAnimation);
       };
     } else if (typeof animatedProp === 'object') {
       // it is an object
-      Object.keys(animatedProp).forEach(key =>
+      Object.keys(animatedProp).forEach((key) =>
         prepareAnimation(
           animatedProp[key],
           lastAnimation && lastAnimation[key],
@@ -118,7 +116,7 @@ function runAnimations(animation, timestamp, key, result) {
     } else if (typeof animation === 'object') {
       result[key] = {};
       let allFinished = true;
-      Object.keys(animation).forEach(k => {
+      Object.keys(animation).forEach((k) => {
         if (!runAnimations(animation[k], timestamp, k, result[key])) {
           allFinished = false;
         }
@@ -143,7 +141,7 @@ function isAnimated(prop) {
       if (prop.animation) {
         return true;
       }
-      return Object.keys(prop).some(key => isAnimated(prop[key]));
+      return Object.keys(prop).some((key) => isAnimated(prop[key]));
     }
     return false;
   }
@@ -153,12 +151,12 @@ function isAnimated(prop) {
 function styleDiff(oldStyle, newStyle) {
   'worklet';
   const diff = {};
-  Object.keys(oldStyle).forEach(key => {
+  Object.keys(oldStyle).forEach((key) => {
     if (newStyle[key] === undefined) {
       diff[key] = null;
     }
   });
-  Object.keys(newStyle).forEach(key => {
+  Object.keys(newStyle).forEach((key) => {
     const value = newStyle[key];
     const oldValue = oldStyle[key];
 
@@ -186,13 +184,13 @@ function styleUpdater(viewTag, updater, state) {
 
   // extract animated props
   let hasAnimations = false;
-  Object.keys(animations).forEach(key => {
+  Object.keys(animations).forEach((key) => {
     const value = newValues[key];
     if (!isAnimated(value)) {
       delete animations[key];
     }
   });
-  Object.keys(newValues).forEach(key => {
+  Object.keys(newValues).forEach((key) => {
     const value = newValues[key];
     if (isAnimated(value)) {
       prepareAnimation(value, animations[key], oldValues[key]);
@@ -210,7 +208,7 @@ function styleUpdater(viewTag, updater, state) {
 
     const updates = {};
     let allFinished = true;
-    Object.keys(animations).forEach(propName => {
+    Object.keys(animations).forEach((propName) => {
       const finished = runAnimations(
         animations[propName],
         timestamp,
@@ -366,7 +364,7 @@ export function useAnimatedGestureHandler(handlers) {
   const { context } = initRef.current;
 
   return useEvent(
-    event => {
+    (event) => {
       'worklet';
       const UNDETERMINED = 0;
       const FAILED = 1;
@@ -432,7 +430,7 @@ export function useAnimatedScrollHandler(handlers) {
     subscribeForEvents.push('onMomentumScrollEnd');
   }
 
-  return useEvent(event => {
+  return useEvent((event) => {
     'worklet';
     const {
       onScroll,
