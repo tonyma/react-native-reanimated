@@ -77,7 +77,7 @@ public class ReanimatedModule extends ReactContextBaseJavaModule implements
     uiManager.addUIBlock(new UIBlock() {
       @Override
       public void execute(NativeViewHierarchyManager nativeViewHierarchyManager) {
-        NodesManager nodesManager = getNodesManager();
+        NodesManager nodesManager = NodesManager.getInstanceWithContext(getReactApplicationContext());
         for (UIThreadOperation operation : operations) {
           operation.execute(nodesManager);
         }
@@ -88,14 +88,6 @@ public class ReanimatedModule extends ReactContextBaseJavaModule implements
   @Override
   public String getName() {
     return NAME;
-  }
-
-  private NodesManager getNodesManager() {
-    if (mNodesManager == null) {
-      mNodesManager = NodesManager.createNodesManager(getReactApplicationContext());
-    }
-
-    return mNodesManager;
   }
 
   @ReactMethod

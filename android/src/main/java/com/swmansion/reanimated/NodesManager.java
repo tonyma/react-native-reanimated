@@ -54,6 +54,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 public class NodesManager implements EventDispatcherListener {
 
+  private static NodesManager sInstance = null;
+
   private static final Double ZERO = Double.valueOf(0);
 
   public interface OnAnimationFrame {
@@ -111,10 +113,13 @@ public class NodesManager implements EventDispatcherListener {
     mNoopNode = new NoopNode(this);
   }
 
-  public static NodesManager createNodesManager(ReactContext context) {
-    NodesManager manager = new NodesManager(context);
-    manager.mUIManager.getEventDispatcher().addListener(manager);
-    return manager;
+  public static NodesManager getInstanceWithContext(ReactContext context){
+    if(sInstance == null || sInstance.mContext != context) {
+      sInstance = new NodesManager(context);
+      sInstance.mUIManager.getEventDispatcher().addListener(sInstance);
+    }
+
+    return sInstance;
   }
 
   public void onHostPause() {
